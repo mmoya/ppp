@@ -541,6 +541,49 @@ options_for_tty()
 }
 
 /*
+ * options_for_env_device - See if an options file exists for the serial
+ * device in environment DEVICE variable, and if so, interpret options from it.
+ * We only allow the per-tty options file to override anything from
+ * the command line if it is something that the user can't override
+ * once it has been set by root; this is done by giving configuration
+ * files a lower priority than the command line.
+ */
+int
+options_for_env_device()
+{
+    char _dev[MAXPATHLEN], *envdev, *path, *p;
+    char *dev = &_dev;
+    int ret;
+    size_t pl;
+
+    envdev = getenv("DEVICE");
+    if (envdev == NULL)
+	return 1;
+
+    strncpy(dev, envdev, MAXPATHLEN);
+    if (dev == NULL)
+	return 1;
+
+    if ((p = strstr(dev, "/dev/")) != NULL)
+	dev = p + 5;
+    if (dev[0] == 0 || strcmp(dev, "tty") == 0)
+	return 1;		/* don't look for /etc/ppp/options.tty */
+    pl = strlen(_PATH_TTYOPT) + strlen(dev) + 1;
+    path = malloc(pl);
+    if (path == NULL)
+	novm("tty init file name");
+    slprintf(path, pl, "%s%s", _PATH_TTYOPT, dev);
+    /* Turn slashes into dots, for Solaris case (e.g. /dev/term/a) */
+    for (p = path + strlen(_PATH_TTYOPT); *p != 0; ++p)
+	if (*p == '/')
+	    *p = '.';
+    option_priority = OPRIO_CFGFILE;
+    ret = options_from_file(path, 0, 0, 1);
+    free(path);
+    return ret;
+}
+
+/*
  * options_from_list - process a string of options in a wordlist.
  */
 int

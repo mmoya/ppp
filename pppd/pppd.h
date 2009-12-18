@@ -701,6 +701,7 @@ int  options_from_file __P((char *filename, int must_exist, int check_prot,
 				/* Parse options from an options file */
 int  options_from_user __P((void)); /* Parse options from user's .ppprc */
 int  options_for_tty __P((void)); /* Parse options from /etc/ppp/options.tty */
+int  options_for_env_device __P((void)); /* Parse options for env DEVICE */
 int  options_from_list __P((struct wordlist *, int privileged));
 				/* Parse options from a wordlist */
 int  getword __P((FILE *f, char *word, int *newlinep, char *filename));

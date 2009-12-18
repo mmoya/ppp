@@ -439,6 +439,9 @@ void tty_process_extra_options()
 	 */
 	if (!options_for_tty())
 		exit(EXIT_OPTION_ERROR);
+
+	if (!options_for_env_device())
+		exit(EXIT_OPTION_ERROR);
 }
 
 /*
