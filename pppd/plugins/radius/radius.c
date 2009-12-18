@@ -90,6 +90,7 @@ static int radius_setparams(VALUE_PAIR *vp, char *msg, REQUEST_INFO *req_info,
 static void radius_choose_ip(u_int32_t *addrp);
 static int radius_init(char *msg);
 static int get_client_port(char *ifname);
+static char *get_caller_id();
 static int radius_allowed_address(u_int32_t addr);
 static void radius_acct_interim(void *);
 #ifdef MPPE
@@ -251,6 +252,7 @@ radius_pap_auth(char *user,
     UINT4 av_type;
     int result;
     static char radius_msg[BUF_LEN];
+    char *caller_id;
 
     radius_msg[0] = 0;
     *msgp = radius_msg;
@@ -283,8 +285,9 @@ radius_pap_auth(char *user,
 
     rc_avpair_add(&send, PW_USER_NAME, rstate.user , 0, VENDOR_NONE);
     rc_avpair_add(&send, PW_USER_PASSWORD, passwd, 0, VENDOR_NONE);
-    if (*remote_number) {
-	rc_avpair_add(&send, PW_CALLING_STATION_ID, remote_number, 0,
+    caller_id = get_caller_id();
+    if (caller_id != NULL) {
+	rc_avpair_add(&send, PW_CALLING_STATION_ID, caller_id, 0,
 		       VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
@@ -342,6 +345,7 @@ radius_chap_verify(char *user, char *ourname, int id,
     int result;
     int challenge_len, response_len;
     u_char cpassword[MAX_RESPONSE_LEN + 1];
+    char *caller_id;
 #ifdef MPPE
     /* Need the RADIUS secret and Request Authenticator to decode MPPE */
     REQUEST_INFO request_info, *req_info = &request_info;
@@ -450,8 +454,9 @@ radius_chap_verify(char *user, char *ourname, int id,
 #endif
     }
 
-    if (*remote_number) {
-	rc_avpair_add(&send, PW_CALLING_STATION_ID, remote_number, 0,
+    caller_id = get_caller_id();
+    if (caller_id != NULL) {
+	rc_avpair_add(&send, PW_CALLING_STATION_ID, caller_id, 0,
 		       VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
@@ -891,6 +896,7 @@ radius_acct_start(void)
     VALUE_PAIR *send = NULL;
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
+    char *caller_id;
 
     if (!rstate.initialized) {
 	return;
@@ -918,9 +924,10 @@ radius_acct_start(void)
     av_type = PW_PPP;
     rc_avpair_add(&send, PW_FRAMED_PROTOCOL, &av_type, 0, VENDOR_NONE);
 
-    if (*remote_number) {
+    caller_id = get_caller_id();
+    if (caller_id != NULL) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
-		       remote_number, 0, VENDOR_NONE);
+		       caller_id, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
 
@@ -978,6 +985,7 @@ radius_acct_stop(void)
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
     int result;
+    char *caller_id;
 
     if (!rstate.initialized) {
 	return;
@@ -1026,9 +1034,10 @@ radius_acct_stop(void)
 	rc_avpair_add(&send, PW_ACCT_INPUT_PACKETS, &av_type, 0, VENDOR_NONE);
     }
 
-    if (*remote_number) {
+    caller_id = get_caller_id();
+    if (caller_id != NULL) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
-		       remote_number, 0, VENDOR_NONE);
+		       caller_id, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
 
@@ -1126,6 +1135,7 @@ radius_acct_interim(void *ignored)
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
     int result;
+    char *caller_id;
 
     if (!rstate.initialized) {
 	return;
@@ -1174,9 +1184,10 @@ radius_acct_interim(void *ignored)
 	rc_avpair_add(&send, PW_ACCT_INPUT_PACKETS, &av_type, 0, VENDOR_NONE);
     }
 
-    if (*remote_number) {
+    caller_id = get_caller_id();
+    if (caller_id != NULL) {
 	rc_avpair_add(&send, PW_CALLING_STATION_ID,
-		       remote_number, 0, VENDOR_NONE);
+		       caller_id, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
 
@@ -1310,6 +1321,29 @@ get_client_port(char *ifname)
 	return port;
     }
     return rc_map2id(ifname);
+}
+
+/**********************************************************************
+* %FUNCTION: get_caller_id()
+* %ARGUMENTS:
+*  None
+* %RETURNS:
+*  The callerID or NULL
+* %DESCRIPTION:
+*  Extract the Caller-ID from environment or options
+***********************************************************************/
+static char*
+get_caller_id()
+{
+	char *caller_id;
+	caller_id = getenv("CALLER_ID");
+	if ((caller_id != NULL) && (strncmp(caller_id, "none", MAXNAMELEN) != 0))
+		return caller_id;
+
+	if (*remote_number)
+		return remote_number;
+
+	return NULL;
 }
 
 /**********************************************************************
