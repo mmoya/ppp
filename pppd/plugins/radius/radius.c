@@ -91,6 +91,7 @@ static void radius_choose_ip(u_int32_t *addrp);
 static int radius_init(char *msg);
 static int get_client_port(char *ifname);
 static char *get_caller_id();
+static char *get_device_name();
 static int radius_allowed_address(u_int32_t addr);
 static void radius_acct_interim(void *);
 #ifdef MPPE
@@ -275,7 +276,7 @@ radius_pap_auth(char *user,
 
     /* Hack... the "port" is the ppp interface number.  Should really be
        the tty */
-    rstate.client_port = get_client_port(portnummap ? devnam : ifname);
+    rstate.client_port = get_client_port(portnummap ? get_device_name() : ifname);
 
     av_type = PW_FRAMED;
     rc_avpair_add(&send, PW_SERVICE_TYPE, &av_type, 0, VENDOR_NONE);
@@ -377,7 +378,7 @@ radius_chap_verify(char *user, char *ourname, int id,
     /* Put user with potentially realm added in rstate.user */
     if (!rstate.done_chap_once) {
 	make_username_realm(user);
-	rstate.client_port = get_client_port (portnummap ? devnam : ifname);
+	rstate.client_port = get_client_port (portnummap ? get_device_name() : ifname);
 	if (radius_pre_auth_hook) {
 	    radius_pre_auth_hook(rstate.user,
 				 &rstate.authserver,
@@ -1344,6 +1345,26 @@ get_caller_id()
 		return remote_number;
 
 	return NULL;
+}
+
+/**********************************************************************
+* %FUNCTION: get_device_name()
+* %ARGUMENTS:
+*  None
+* %RETURNS:
+*  The device name
+* %DESCRIPTION:
+*  Returns devnam unless DEVICE is present in the environment
+***********************************************************************/
+static char*
+get_device_name()
+{
+	char *device_name;
+	device_name = getenv("DEVICE");
+	if (device_name != NULL)
+		return device_name;
+	else
+		return devnam;
 }
 
 /**********************************************************************
