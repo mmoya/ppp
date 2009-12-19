@@ -92,6 +92,7 @@ static int radius_init(char *msg);
 static int get_client_port(char *ifname);
 static char *get_caller_id();
 static char *get_device_name();
+static char *get_connect_info();
 static int radius_allowed_address(u_int32_t addr);
 static void radius_acct_interim(void *);
 #ifdef MPPE
@@ -253,7 +254,7 @@ radius_pap_auth(char *user,
     UINT4 av_type;
     int result;
     static char radius_msg[BUF_LEN];
-    char *caller_id;
+    char *caller_id, *connect_info;
 
     radius_msg[0] = 0;
     *msgp = radius_msg;
@@ -292,6 +293,10 @@ radius_pap_auth(char *user,
 		       VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
+
+    connect_info = get_connect_info();
+    if (connect_info != NULL)
+	rc_avpair_add(&send, PW_CONNECT_INFO, connect_info, 0, VENDOR_NONE);
 
     /* Add user specified vp's */
     if (rstate.avp)
@@ -346,7 +351,7 @@ radius_chap_verify(char *user, char *ourname, int id,
     int result;
     int challenge_len, response_len;
     u_char cpassword[MAX_RESPONSE_LEN + 1];
-    char *caller_id;
+    char *caller_id, *connect_info;
 #ifdef MPPE
     /* Need the RADIUS secret and Request Authenticator to decode MPPE */
     REQUEST_INFO request_info, *req_info = &request_info;
@@ -461,6 +466,10 @@ radius_chap_verify(char *user, char *ourname, int id,
 		       VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
+
+    connect_info = get_connect_info();
+    if (connect_info != NULL)
+	rc_avpair_add(&send, PW_CONNECT_INFO, connect_info, 0, VENDOR_NONE);
 
     /* Add user specified vp's */
     if (rstate.avp)
@@ -897,7 +906,7 @@ radius_acct_start(void)
     VALUE_PAIR *send = NULL;
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
-    char *caller_id;
+    char *caller_id, *connect_info;
 
     if (!rstate.initialized) {
 	return;
@@ -931,6 +940,10 @@ radius_acct_start(void)
 		       caller_id, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
+
+    connect_info = get_connect_info();
+    if (connect_info != NULL)
+	rc_avpair_add(&send, PW_CONNECT_INFO, connect_info, 0, VENDOR_NONE);
 
     av_type = PW_RADIUS;
     rc_avpair_add(&send, PW_ACCT_AUTHENTIC, &av_type, 0, VENDOR_NONE);
@@ -1136,7 +1149,7 @@ radius_acct_interim(void *ignored)
     ipcp_options *ho = &ipcp_hisoptions[0];
     u_int32_t hisaddr;
     int result;
-    char *caller_id;
+    char *caller_id, *connect_info;
 
     if (!rstate.initialized) {
 	return;
@@ -1191,6 +1204,10 @@ radius_acct_interim(void *ignored)
 		       caller_id, 0, VENDOR_NONE);
     } else if (ipparam)
 	rc_avpair_add(&send, PW_CALLING_STATION_ID, ipparam, 0, VENDOR_NONE);
+
+    connect_info = get_connect_info();
+    if (connect_info != NULL)
+	rc_avpair_add(&send, PW_CONNECT_INFO, connect_info, 0, VENDOR_NONE);
 
     av_type = ( using_pty ? PW_VIRTUAL : ( sync_serial ? PW_SYNC : PW_ASYNC ) );
     rc_avpair_add(&send, PW_NAS_PORT_TYPE, &av_type, 0, VENDOR_NONE);
@@ -1365,6 +1382,26 @@ get_device_name()
 		return device_name;
 	else
 		return devnam;
+}
+
+/**********************************************************************
+* %FUNCTION: get_connect_info()
+* %ARGUMENTS:
+*  None
+* %RETURNS:
+*  The connect info
+* %DESCRIPTION:
+*  Returns connect info if found in the environment
+***********************************************************************/
+static char*
+get_connect_info()
+{
+	char *connect_info;
+	connect_info = getenv("CONNECT");
+	if ((connect_info != NULL) && strlen(connect_info) > 0)
+		return connect_info;
+	else
+		return NULL;
 }
 
 /**********************************************************************
